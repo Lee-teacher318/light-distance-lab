@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>빛의 세기와 거리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Sans+KR:wght@400;500;700&family=Share+Tech+Mono&display=swap">
+<style>
+/* 레이아웃: 갤럭시 탭 S9 FE 가로(약 1280×800)에서 왼쪽 실험 장치·결과 표, 오른쪽 조작 패널(고정). 세로(800)에서는 장치 → 조작 → 표 순으로 쌓임 */
+:root{
+  --bg:#EEF1EC; --surface:#FFFFFF; --surface-2:#F5F7F3; --ink:#18211D; --muted:#56635D; --line:#D3DAD4;
+  --amber:#B56C0C; --amber-soft:#F6C66B; --teal:#1F6F6A; --teal-soft:#D8ECE9; --green:#18924F; --warn:#B4441B;
+  --f-display:"Do Hyeon","IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-data:"Share Tech Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#101513; --surface:#18201C; --surface-2:#1E2723; --ink:#E4ECE7; --muted:#9AA8A1; --line:#2C3632;
+    --amber:#F2B045; --amber-soft:#F6C66B; --teal:#62C4BA; --teal-soft:#1D3A37; --green:#45CC7D; --warn:#F07A50;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101513; --surface:#18201C; --surface-2:#1E2723; --ink:#E4ECE7; --muted:#9AA8A1; --line:#2C3632;
+  --amber:#F2B045; --amber-soft:#F6C66B; --teal:#62C4BA; --teal-soft:#1D3A37; --green:#45CC7D; --warn:#F07A50;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:18px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 32px;
+  -webkit-tap-highlight-color:transparent}
+.wrap{max-width:1280px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1,h3{font-family:var(--f-display);font-weight:400;margin:0;text-wrap:balance;letter-spacing:.01em}
+h1{font-size:clamp(28px,3.2vw,36px);line-height:1.15}
+h3{font-size:24px}
+p{margin:0}
+.eyebrow{font-size:15px;letter-spacing:.06em;color:var(--muted);font-weight:500}
+header{display:flex;flex-direction:column;gap:4px}
+header p{color:var(--muted);font-size:18px}
+
+/* 배치 */
+.lab{display:grid;grid-template-columns:minmax(0,1fr) 340px;grid-template-areas:"stage side" "results side";gap:16px;align-items:start}
+.lab-stage{grid-area:stage}
+.lab-side{grid-area:side;display:flex;flex-direction:column;gap:14px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
+.lab-results{grid-area:results}
+@media (max-width:1000px){
+  .lab{grid-template-columns:minmax(0,1fr);grid-template-areas:"stage" "side" "results"}
+  .lab-side{position:static;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:600px){ .lab-side{grid-template-columns:minmax(0,1fr)} }
+
+/* 실험 장치 */
+.stage{border-radius:16px;overflow:hidden;background:#0B0E0D;position:relative}
+.stage svg{display:block;width:100%;height:auto;touch-action:pan-y}
+#meter{cursor:grab;touch-action:none}
+#meter.dragging{cursor:grabbing}
+.room-wall{transition:fill .5s}
+
+/* 조작 패널 */
+.ctl{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.ctl-label{font-size:16px;color:var(--muted);font-weight:500}
+button{font-family:var(--f-body);font-size:18px;cursor:pointer}
+.toggles{display:flex;flex-direction:column;gap:10px}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;padding:10px 14px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);text-align:left}
+.switch .knob{width:56px;height:32px;border-radius:999px;background:var(--line);position:relative;flex:none;transition:background .2s}
+.switch .knob::after{content:"";position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .2s}
+.switch[aria-pressed="true"] .knob{background:var(--teal)}
+.switch[aria-pressed="true"] .knob::after{transform:translateX(24px)}
+.seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{flex:1;min-height:52px;padding:8px 6px;border:0;background:var(--surface-2);color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--teal);color:var(--surface)}
+.reading{display:flex;align-items:baseline;gap:8px}
+.reading b{font-family:var(--f-data);font-weight:400;font-size:64px;line-height:1;font-variant-numeric:tabular-nums}
+.reading span{color:var(--muted);font-size:18px}
+.record{min-height:64px;padding:12px;border-radius:12px;border:0;background:var(--amber-soft);color:#2A1D05;font-weight:700;font-size:21px}
+.record:active{transform:translateY(1px)}
+.hint{font-size:15px;color:var(--warn);min-height:1.4em}
+.hint:empty{display:none}
+button:focus-visible,input:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+.chk{display:flex;gap:10px;align-items:center;font-size:17px;color:var(--muted)}
+.chk input{accent-color:var(--amber);width:24px;height:24px;flex:none}
+.spread-chk{min-height:56px;padding:10px 14px;border-radius:12px;background:var(--surface-2);border:1px solid var(--line);color:var(--ink);font-size:18px;cursor:pointer}
+.hint-chip{font-size:14px;font-weight:700;color:#2A1D05;background:var(--amber-soft);border-radius:999px;padding:2px 10px;flex:none}
+
+/* 측정 결과 */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.card-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.ghost{min-height:44px;padding:6px 14px;border-radius:10px;border:1px solid var(--line);background:transparent;color:var(--ink);font-size:16px}
+.table-scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th{font-weight:500;font-size:16px;color:var(--muted);text-align:right;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:bottom;line-height:1.35}
+th:first-child,td:first-child{text-align:left}
+td{padding:10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-family:var(--f-data);font-size:22px}
+td .sub{display:block;font-size:14px;color:var(--muted);font-family:var(--f-body)}
+tr.base td{background:var(--teal-soft)}
+td input{width:5em;font-family:var(--f-data);font-size:22px;text-align:right;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--ink)}
+.ratio-main{color:var(--amber);font-size:30px}
+.ratio-line{display:flex;flex-direction:column;gap:4px;font-family:var(--f-data);font-size:19px;color:var(--muted);background:var(--surface-2);border-radius:10px;padding:12px 14px}
+.ratio-line[hidden]{display:none}
+.guide{display:flex;gap:18px;align-items:center;background:var(--teal-soft);border-radius:12px;padding:14px 16px;font-size:17px}
+.guide p{min-width:0}
+.guide-frac{font-size:15px;text-align:center;flex:none;color:var(--ink)}
+.guide-frac span:not(.frac-bar){padding:0 4px}
+@media (max-width:700px){.guide{flex-direction:column;align-items:flex-start}}
+.frac-cell{display:flex;align-items:center;justify-content:flex-end;gap:14px}
+.frac{display:inline-flex;flex-direction:column;align-items:stretch;gap:4px}
+.frac-bar{display:block;height:3px;border-radius:2px;background:var(--ink)}
+.frac input{width:8.2em;text-align:center;font-size:21px;padding:4px 6px}
+.frac input::placeholder{font-family:var(--f-body);font-size:13.5px;color:var(--muted)}
+.frac-out:empty{display:none}
+.frac-out{display:flex;flex-direction:column;align-items:flex-start;text-align:left;line-height:1.15}
+.frac-out .ratio-main{font-size:34px}
+.frac-eq{font-size:22px;color:var(--muted)}
+.frac input::-webkit-inner-spin-button,.frac input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.frac input{-moz-appearance:textfield}
+.frac-wait{font-family:var(--f-body);font-size:14px;color:var(--muted);white-space:normal}
+.warn-sub{color:var(--warn)!important}
+.ratio-line b{color:var(--amber);font-weight:400;font-size:28px}
+.tag{font-family:var(--f-body);font-size:13px;padding:1px 8px;border-radius:999px;border:1px solid var(--muted);color:var(--muted);margin-left:6px;vertical-align:middle}
+.tag.warn{border-color:var(--warn);color:var(--warn)}
+.del{border:0;background:transparent;color:var(--muted);font-size:26px;width:44px;height:44px;line-height:1}
+.empty{color:var(--muted);font-size:17px;padding:16px 4px;font-family:var(--f-body);white-space:normal;text-align:left}
+.how{font-size:16px;color:var(--muted);background:var(--surface-2);border-radius:10px;padding:12px 14px}
+.how b{color:var(--ink);font-weight:500}
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 20px;border-radius:999px;font-size:17px;opacity:0;pointer-events:none;transition:opacity .25s;z-index:5}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>[hidden]{display:none!important} img{max-width:100%} body{margin:0}</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="eyebrow">중학교 과학 2 · Ⅷ. 별과 우주 · 탐구</span>
+    <h1>광원으로부터의 거리에 따른 빛의 세기</h1>
+    <p>조도계를 손가락으로 끌어 원하는 거리에 놓고, 값이 안정되면 <b>기록하기</b>를 누르세요. 주변이 어두운 실험실이라고 생각하고 측정합니다.</p>
+  </header>
+
+  <main class="lab">
+    <div class="stage lab-stage">
+      <svg id="stage" viewBox="0 0 1000 380" role="img" aria-label="전구와 조도계 실험 장치. 조도계를 끌어서 거리를 바꿀 수 있습니다.">
+        <defs>
+          <radialGradient id="glow" cx="110" cy="190" r="560" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#FFE7A8" stop-opacity=".95"/>
+            <stop offset=".05" stop-color="#FFD27A" stop-opacity=".55"/>
+            <stop offset=".22" stop-color="#F3B04E" stop-opacity=".22"/>
+            <stop offset=".55" stop-color="#C97E2A" stop-opacity=".07"/>
+            <stop offset="1" stop-color="#C97E2A" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="glass" cx=".42" cy=".38" r=".7">
+            <stop offset="0" stop-color="#FFFBE8"/>
+            <stop offset=".6" stop-color="#FFE29A"/>
+            <stop offset="1" stop-color="#F2B24A"/>
+          </radialGradient>
+          <radialGradient id="glassOff" cx=".42" cy=".38" r=".7">
+            <stop offset="0" stop-color="#E9EDEA"/>
+            <stop offset="1" stop-color="#9AA39E"/>
+          </radialGradient>
+          <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#7A6447"/><stop offset="1" stop-color="#4A3B28"/>
+          </linearGradient>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0 0L10 5L0 10z" fill="#F29A4A"/>
+          </marker>
+        </defs>
+        <rect id="wall" class="room-wall" x="0" y="0" width="1000" height="300" fill="#0B0E0D"/>
+        <rect id="desk" class="room-wall" x="0" y="300" width="1000" height="80" fill="#2B241B"/>
+        <rect x="0" y="298" width="1000" height="4" fill="#000" opacity=".25"/>
+        <g id="glowLayer"><circle cx="110" cy="190" r="560" fill="url(#glow)"/></g>
+        <ellipse id="spot" cx="110" cy="302" rx="330" ry="22" fill="#FFD27A" opacity=".18"/>
+        <g id="rays" stroke="#FFE3A0" stroke-width="1.2" opacity=".35"></g>
+
+        <!-- 자 -->
+        <g id="ruler">
+          <rect x="94" y="304" width="832" height="34" rx="3" fill="#E8D7A4"/>
+          <g id="ticks" stroke="#3B2F1B"></g>
+          <g id="tickLabels" fill="#3B2F1B" font-family="Share Tech Mono, monospace" font-size="18" text-anchor="middle"></g>
+          <text x="924" y="360" fill="#C9B88A" font-size="15" text-anchor="end" font-family="IBM Plex Sans KR, sans-serif">단위: cm</text>
+        </g>
+        <rect id="ruler-dim" x="94" y="304" width="832" height="34" fill="#000" opacity="0"/>
+
+        <!-- 전구(광원 장치) -->
+        <g id="lamp">
+          <rect x="72" y="286" width="76" height="14" rx="4" fill="#3E4743"/>
+          <rect x="105" y="226" width="10" height="62" fill="#59645F"/>
+          <rect x="96" y="212" width="28" height="20" rx="3" fill="#8D9792"/>
+          <path d="M98 216h24M98 221h24M98 226h24" stroke="#5E6863" stroke-width="1.5"/>
+          <circle id="bulbGlass" cx="110" cy="190" r="23" fill="url(#glass)"/>
+          <path id="filament" d="M102 196 q3 -10 5 0 q3 -10 5 0 q3 -10 5 0" fill="none" stroke="#C25A0E" stroke-width="1.8"/>
+          <text x="110" y="373" text-anchor="middle" fill="#F6E3B4" font-size="19" font-family="IBM Plex Sans KR, sans-serif" font-weight="500">전구(광원)</text>
+          <line x1="110" y1="214" x2="110" y2="304" stroke="#F6E3B4" stroke-width="1" stroke-dasharray="3 3" opacity=".6"/>
+        </g>
+
+        <!-- 거리 표시 -->
+        <g id="dim">
+          <line id="dimLine" x1="110" y1="132" x2="270" y2="132" stroke="#F29A4A" stroke-width="2" marker-start="url(#arr)" marker-end="url(#arr)"/>
+          <rect id="dimBox" x="144" y="114" width="92" height="32" rx="6" fill="#0B0E0D" opacity=".75"/>
+          <text id="dimText" x="190" y="138" text-anchor="middle" fill="#FFB774" font-size="24" font-family="Share Tech Mono, monospace">20 cm</text>
+        </g>
+
+        <!-- 조도계 -->
+        <g id="meter" tabindex="0" role="slider" aria-label="조도계 위치" aria-valuemin="10" aria-valuemax="100" aria-valuenow="20">
+          <rect x="-20" y="120" width="130" height="190" fill="transparent"/>
+          <line x1="0" y1="190" x2="0" y2="304" stroke="#9FE0D8" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/>
+          <path d="M-7 304 L7 304 L0 314 Z" fill="#9FE0D8"/>
+          <rect x="0" y="184" width="12" height="38" rx="3" fill="#2A3B3A"/>
+          <rect id="sensorFace" x="-3" y="190" width="5" height="26" rx="1" fill="#F4F7F5"/>
+          <rect x="10" y="134" width="86" height="160" rx="12" fill="#2F7D78"/>
+          <rect x="10" y="134" width="86" height="160" rx="12" fill="#FFE4A6" id="meterLit" opacity="0"/>
+          <rect x="18" y="146" width="70" height="48" rx="5" fill="#1C2826"/>
+          <rect x="22" y="150" width="62" height="40" rx="3" fill="#BFD7A8"/>
+          <text id="lcd" x="81" y="179" text-anchor="end" fill="#1E2A16" font-size="29" font-family="Share Tech Mono, monospace">136</text>
+          <text x="80" y="187" text-anchor="end" fill="#2F4022" font-size="8" font-family="Share Tech Mono, monospace">LUX</text>
+          <text x="53" y="218" text-anchor="middle" fill="#E6F4F1" font-size="17" font-family="IBM Plex Sans KR, sans-serif" font-weight="700">조도계</text>
+          <circle cx="36" cy="240" r="8" fill="#1F5652"/><circle cx="70" cy="240" r="8" fill="#1F5652"/>
+          <rect x="30" y="262" width="46" height="8" rx="4" fill="#1F5652"/>
+          <rect x="14" y="292" width="78" height="10" rx="3" fill="#24302E"/>
+          <text x="53" y="126" text-anchor="middle" fill="#9FE0D8" font-size="17" font-family="IBM Plex Sans KR, sans-serif">← 감지부</text>
+        </g>
+
+        <clipPath id="stageClip"><rect x="0" y="0" width="1000" height="380"/></clipPath>
+        <g id="spreadLayer" pointer-events="none" clip-path="url(#stageClip)"></g>
+      </svg>
+    </div>
+    <aside class="lab-side" aria-label="실험 조작">
+      <div class="ctl">
+        <span class="ctl-label">실험 조건</span>
+        <div class="toggles">
+          <button class="switch" id="bulbBtn" aria-pressed="true"><span>전구 켜기</span><span class="knob"></span></button>
+          <label class="chk spread-chk"><input type="checkbox" id="spreadChk"><span class="hint-chip">힌트</span> 빛이 퍼지는 모습 겹쳐 보기</label>
+        </div>
+        <div>
+          <span class="ctl-label">전구 밝기</span>
+          <div class="seg" role="group" aria-label="전구 밝기">
+            <button id="pw1" aria-pressed="false" data-p="0.5">약하게</button>
+            <button id="pw2" aria-pressed="true" data-p="1">보통</button>
+            <button id="pw3" aria-pressed="false" data-p="2">강하게</button>
+          </div>
+        </div>
+      </div>
+      <div class="ctl">
+        <span class="ctl-label">조도계 측정값</span>
+        <div class="reading"><b id="readOut">136</b><span>lx (럭스)</span></div>
+        <button class="record" id="recBtn">기록하기 (20 cm)</button>
+        <p class="hint" id="hint" aria-live="polite"></p>
+      </div>
+    </aside>
+      <div class="card lab-results">
+        <div class="card-head">
+          <h3>측정 결과</h3>
+          <div class="btns">
+            <button class="ghost" id="copyBtn">표 복사</button>
+            <button class="ghost" id="clearBtn">표 비우기</button>
+          </div>
+        </div>
+        <div class="guide">
+          <div class="frac guide-frac" aria-hidden="true"><span>그 거리에서 잰 빛의 세기</span><span class="frac-bar"></span><span>기준 거리에서 잰 빛의 세기</span></div>
+          <p><b>거리에 따른 빛의 세기의 비</b>를 분수로 적어 보세요.<br><b>분자</b>에는 그 거리(40 cm, 60 cm …)에서 잰 빛의 세기를, <b>분모</b>에는 기준 거리(<span id="baseInfo">20 cm, 136 lx</span>)에서 잰 빛의 세기를 넣으면 빛의 세기가 몇 분의 1이 되었는지 바로 나와요.</p>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>거리 (cm)</th><th>빛의 세기 (lx)</th><th>거리에 따른 빛의 세기의 비</th><th><span class="sr" aria-label="삭제"></span></th>
+            </tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+
+      </div>
+  </main>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  const PX0 = 110, PXCM = 8;           // 0 cm 위치와 1 cm당 픽셀
+  const K = 136 * 20 * 20;             // 20 cm에서 136 lx (보통 밝기)
+  const AMBIENT = 42;                  // 방 불이 켜졌을 때 더해지는 주변 빛(lx)
+  const $ = id => document.getElementById(id);
+  const S = { d:20, room:false, bulb:true, power:1, lux:0, spread:false };
+  let rows = [];
+
+  /* ---------- 자 눈금 ---------- */
+  (function drawRuler(){
+    let t = '', l = '';
+    for (let c = 0; c <= 100; c++) {
+      const x = PX0 + c * PXCM;
+      const h = c % 10 === 0 ? 14 : c % 5 === 0 ? 10 : 6;
+      t += `<line x1="${x}" y1="304" x2="${x}" y2="${304+h}" stroke-width="${c%10===0?1.4:.8}"/>`;
+      if (c % 10 === 0) l += `<text x="${x}" y="336">${c}</text>`;
+    }
+    $('ticks').innerHTML = t; $('tickLabels').innerHTML = l;
+    let r = '';
+    for (let a = -26; a <= 26; a += 6.5) {
+      const rad = a * Math.PI / 180, L = 900;
+      r += `<line x1="${PX0}" y1="190" x2="${PX0 + L*Math.cos(rad)}" y2="${190 + L*Math.sin(rad)}"/>`;
+    }
+    $('rays').innerHTML = r;
+  })();
+
+  /* ---------- 물리 모형 ---------- */
+  function trueLux(d){
+    let v = 0;
+    if (S.bulb) v += K * S.power / (d*d);
+    if (S.room) v += AMBIENT;
+    return v;
+  }
+  function sample(){
+    const v = trueLux(S.d);
+    const noisy = v * (1 + (Math.random()-.5) * 0.024) + (S.room ? (Math.random()-.5) * 2 : 0) + (S.bulb || S.room ? 0 : Math.random()*0.4);
+    return Math.max(0, noisy);
+  }
+  const fmtLux = v => v >= 20 ? String(Math.round(v)) : v.toFixed(1);
+
+  /* ---------- 화면 갱신 ---------- */
+  function renderStage(){
+    const mx = PX0 + S.d * PXCM;
+    $('meter').setAttribute('transform', `translate(${mx},0)`);
+    $('meter').setAttribute('aria-valuenow', S.d);
+    $('dimLine').setAttribute('x2', mx - 3);
+    const cx = (PX0 + mx) / 2;
+    $('dimBox').setAttribute('x', cx - 46); $('dimText').setAttribute('x', cx);
+    $('dimText').textContent = S.d + ' cm';
+    $('recBtn').textContent = `기록하기 (${S.d} cm)`;
+
+    const on = S.bulb, pw = S.power;
+    $('glowLayer').style.opacity = on ? Math.min(1, .55 + .3*pw) : 0;
+    $('spot').style.opacity = on ? .12 * Math.min(2, pw) : 0;
+    $('rays').style.opacity = on ? .3 : 0;
+    $('bulbGlass').setAttribute('fill', on ? 'url(#glass)' : 'url(#glassOff)');
+    $('filament').setAttribute('stroke', on ? '#C25A0E' : '#6C726F');
+    $('wall').setAttribute('fill', S.room ? '#4C5650' : '#0B0E0D');
+    $('desk').setAttribute('fill', S.room ? '#7E6A4E' : '#2B241B');
+    $('ruler-dim').setAttribute('opacity', S.room ? 0 : (on ? .18 : .55));
+    const lit = on ? Math.min(.55, (K*pw/(S.d*S.d)) / 900) : 0;
+    $('meterLit').setAttribute('opacity', lit.toFixed(3));
+    $('sensorFace').setAttribute('fill', on ? '#FFF6D8' : '#C9D0CC');
+
+    $('rays').style.opacity = on && !S.spread ? .3 : 0;
+    $('spreadChk').checked = S.spread;
+    drawOverlay();
+    $('bulbBtn').setAttribute('aria-pressed', S.bulb);
+    document.querySelectorAll('#pw1,#pw2,#pw3').forEach(b => b.setAttribute('aria-pressed', +b.dataset.p === S.power));
+    const h = $('hint');
+    if (!S.bulb) { h.textContent = '전구가 꺼져 있어요.'; h.className = 'hint'; }
+    else { h.textContent = ''; h.className = 'hint'; }
+  }
+  /* 실험 장면 위에 겹치는 빛의 퍼짐(역제곱) 그림 */
+  const CELL = 26, DX = -20, DY = 9, AXIS_Y = 190;
+  function drawOverlay(){
+    const L = $('spreadLayer');
+    if (!S.spread || !S.bulb) { L.innerHTML = ''; return; }
+    const d0 = rows.length ? rows[0].d : 20;
+    const n = S.d / d0;
+    const X = d => PX0 + d * PXCM;
+    const P = (d,u,v) => [X(d) + u*DX, AXIS_Y + v*CELL + u*DY];
+    const pts = a => a.map(p => p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
+    const fmt = x => Math.abs(x-Math.round(x)) < 0.01 ? String(Math.round(x)) : x.toFixed(2);
+    let s = '';
+    const kMax = Math.min(5, Math.floor(100 / d0));
+    for (let k = 1; k <= kMax; k++) {
+      s += `<circle cx="${PX0}" cy="${AXIS_Y}" r="${k*d0*PXCM}" fill="none" stroke="#8FC0EA" stroke-opacity=".22" stroke-width="10"/>`;
+      s += `<circle cx="${PX0}" cy="${AXIS_Y}" r="${k*d0*PXCM}" fill="none" stroke="#B9DCF7" stroke-opacity=".35" stroke-width="1.2"/>`;
+    }
+    s += `<circle cx="${PX0}" cy="${AXIS_Y}" r="${S.d*PXCM}" fill="none" stroke="#D6ECFF" stroke-opacity=".8" stroke-width="2" stroke-dasharray="6 5"/>`;
+    const patch = (d, m, cur) => {
+      let g = `<g opacity="${cur ? 1 : .45}">`;
+      g += `<polygon points="${pts([P(d,0,0),P(d,m,0),P(d,m,m),P(d,0,m)])}" fill="#8FC6EC" fill-opacity="${cur ? .55 : .3}" stroke="#D6ECFF" stroke-width="${cur?1.6:1}"/>`;
+      for (let i = 1; i < m; i++) {
+        g += `<line x1="${P(d,i,0)[0]}" y1="${P(d,i,0)[1]}" x2="${P(d,i,m)[0]}" y2="${P(d,i,m)[1]}" stroke="#FFFFFF" stroke-opacity=".85" stroke-width="1"/>`;
+        g += `<line x1="${P(d,0,i)[0]}" y1="${P(d,0,i)[1]}" x2="${P(d,m,i)[0]}" y2="${P(d,m,i)[1]}" stroke="#FFFFFF" stroke-opacity=".85" stroke-width="1"/>`;
+      }
+      g += `<polygon points="${pts([P(d,0,0),P(d,1,0),P(d,1,1),P(d,0,1)])}" fill="none" stroke="#2EE37A" stroke-width="${cur?3:2}"/>`;
+      return g + '</g>';
+    };
+    for (let k = 1; k <= kMax; k++) if (Math.abs(k*d0 - S.d) > 0.01) {
+      s += patch(k*d0, k, false);
+      const lb = P(k*d0, 0, k);
+      s += `<text x="${lb[0]+4}" y="${lb[1]+18}" fill="#CFE6F8" font-size="14" font-family="Share Tech Mono, monospace" opacity=".7">${k}</text>`;
+    }
+    s += patch(S.d, n, true);
+    [[0,0],[1,0],[1,1],[0,1]].forEach(([u,v]) => {
+      const far = P(d0*12, 12*u, 12*v), at = P(S.d, n*u, n*v);
+      s += `<line x1="${PX0}" y1="${AXIS_Y}" x2="${far[0]}" y2="${far[1]}" stroke="#FFE08A" stroke-opacity=".25" stroke-width="1.5"/>`;
+      s += `<line x1="${PX0}" y1="${AXIS_Y}" x2="${at[0]}" y2="${at[1]}" stroke="#FFE08A" stroke-opacity=".9" stroke-width="2"/>`;
+    });
+    const area = n*n, nTxt = fmt(n), aTxt = fmt(area);
+    const inv = aTxt === '1' ? '1' : area >= 1 ? `1/${aTxt}` : `${fmt(1/area)}`;
+    s += `<g font-family="IBM Plex Sans KR, sans-serif">
+      <rect x="12" y="8" width="400" height="100" rx="12" fill="#0B0E0D" fill-opacity=".78" stroke="#8FC0EA" stroke-opacity=".5"/>
+      <text x="30" y="34" fill="#CFE6F8" font-size="17">기준 거리 ${d0} cm → 지금 ${S.d} cm (<tspan fill="#FFB774" font-weight="700">${nTxt}배</tspan>)</text>
+      <text x="30" y="62" fill="#CFE6F8" font-size="17">빛이 닿는 넓이 ${nTxt}×${nTxt} = <tspan fill="#FFFFFF" font-weight="700">${aTxt}배</tspan></text>
+      <text x="30" y="90" fill="#CFE6F8" font-size="17">조도계(<tspan fill="#2EE37A">초록 칸</tspan>)에 오는 빛 <tspan fill="#FFE08A" font-weight="700">${inv}배</tspan></text>
+    </g>`;
+    L.innerHTML = s;
+  }
+  function tick(){
+    S.lux = sample();
+    const t = fmtLux(S.lux);
+    $('lcd').textContent = t; $('readOut').textContent = t;
+  }
+  function setD(d){
+    S.d = Math.max(10, Math.min(100, Math.round(d/5)*5));
+    renderStage(); tick();
+  }
+
+  /* ---------- 조작 ---------- */
+  $('bulbBtn').onclick = () => { S.bulb = !S.bulb; renderStage(); tick(); };
+  $('spreadChk').onchange = e => { S.spread = e.target.checked; renderStage(); };
+  document.querySelectorAll('#pw1,#pw2,#pw3').forEach(b => b.onclick = () => { S.power = +b.dataset.p; renderStage(); tick(); });
+  $('meter').addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { setD(S.d + 5); e.preventDefault(); }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { setD(S.d - 5); e.preventDefault(); }
+  });
+  (function drag(){
+    const svg = $('stage'), m = $('meter');
+    let dragging = false, off = 0;
+    const toX = ev => { const p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY; return p.matrixTransform(svg.getScreenCTM().inverse()).x; };
+    m.addEventListener('pointerdown', ev => { dragging = true; m.classList.add('dragging'); m.setPointerCapture(ev.pointerId); off = toX(ev) - (PX0 + S.d*PXCM); });
+    m.addEventListener('pointermove', ev => { if (!dragging) return; setD((toX(ev) - off - PX0) / PXCM); });
+    const end = () => { dragging = false; m.classList.remove('dragging'); };
+    m.addEventListener('pointerup', end); m.addEventListener('pointercancel', end);
+  })();
+  setInterval(tick, 600);
+
+  /* ---------- 기록 ---------- */
+  function toast(msg){ const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 1800); }
+  $('recBtn').onclick = () => {
+    if (rows.length && rows.every(r => r.example)) rows = [];
+    const lux = +fmtLux(S.lux);
+    const row = { d:S.d, lux, room:S.room, bulb:S.bulb, power:S.power, example:false };
+    const i = rows.findIndex(r => r.d === S.d);
+    if (i >= 0) { rows[i] = row; toast(`${S.d} cm 값을 새로 기록했어요`); }
+    else { rows.push(row); toast(`${S.d} cm · ${fmtLux(lux)} lx 기록`); }
+    const powers = new Set(rows.map(r => r.power));
+    if (powers.size > 1) toast('전구 밝기가 다른 값이 섞여 있어요. 같은 밝기로 측정하세요');
+    renderTable();
+  };
+  $('clearBtn').onclick = () => { rows = []; renderTable(); };
+  $('copyBtn').onclick = () => {
+    const sorted = [...rows].sort((a,b) => a.d - b.d);
+    const c = calc(sorted);
+    const lines = ['거리(cm)\t빛의 세기(lx)\t거리에 따른 빛의 세기의 비'];
+    sorted.forEach((r,i) => lines.push([r.d, r.lux, i===0 ? '1' : (studentRatio(r) === null ? '' : `${r.num}/${r.den} → ${fracOf(studentRatio(r))}`)].join('\t')));
+    const text = lines.join('\n');
+    navigator.clipboard.writeText(text).then(() => toast('표를 복사했어요. 스프레드시트에 붙여 넣으세요'), () => toast('복사하지 못했어요. 표를 직접 선택해 복사하세요'));
+  };
+
+  /* ---------- 계산 ---------- */
+  // 측정값으로 구한 비를 1/n 꼴로 (분모는 가장 가까운 정수)
+  const fracOf = r => { if (!(r > 0)) return '–'; if (r >= 0.95) return r < 1.05 ? '1' : r.toFixed(1); return '1/' + Math.round(1/r); };
+  // 학생 입력: 분자 = 그 거리의 빛의 세기, 분모 = 기준 거리의 빛의 세기 → 빛의 세기의 비 = 분자 ÷ 분모
+  const studentRatio = r => { const n = parseFloat(r.num), d = parseFloat(r.den); return n > 0 && d > 0 ? n / d : null; };
+  const nice = x => Math.abs(x - Math.round(x)) < 0.005 ? String(Math.round(x)) : x.toFixed(2).replace(/0$/, '');
+  function calc(sorted){
+    if (!sorted.length) return [];
+    const b = sorted[0];
+    return sorted.map(r => {
+      const dr = r.d / b.d;
+      const rr = b.lux > 0 ? r.lux / b.lux : NaN;
+      return { dr, r: rr, exp: 1/(dr*dr) };
+    });
+  }
+  function renderTable(){
+    rows.sort((a,b) => a.d - b.d);
+    const tb = $('tbody');
+    if (!rows.length) {
+      tb.innerHTML = `<tr><td colspan="4" class="empty">아직 기록이 없어요. 조도계를 20 cm, 40 cm, 60 cm처럼 기준 거리의 2배, 3배 되는 곳에 놓고 기록해 보세요.</td></tr>`;
+    } else {
+      tb.innerHTML = rows.map((r,i) => {
+        const tags = (r.example ? '<span class="tag">예시</span>' : '') + (r.room ? '<span class="tag warn">방 불 켜짐</span>' : '') + (!r.bulb ? '<span class="tag warn">전구 꺼짐</span>' : '');
+        return `<tr class="${i===0?'base':''}">
+          <td>${r.d}${i===0?'<span class="tag">기준</span>':''}${tags}</td>
+          <td><input type="number" inputmode="decimal" min="0" step="any" id="lux-${r.d}" value="${r.lux}" aria-label="${r.d} cm 빛의 세기"></td>
+          <td>${i===0 ? '<span class="ratio-main">1</span><span class="sub">기준</span>' : `<div class="frac-cell">
+            <div class="frac">
+              <input type="number" inputmode="decimal" min="0" step="any" id="num-${r.d}" value="${r.num ?? ''}" placeholder="${r.d} cm에서 빛의 세기" aria-label="분자: ${r.d} cm에서 잰 빛의 세기">
+              <span class="frac-bar"></span>
+              <input type="number" inputmode="decimal" min="0" step="any" id="den-${r.d}" value="${r.den ?? ''}" placeholder="${rows[0].d} cm에서 빛의 세기" aria-label="분모: ${rows[0].d} cm에서 잰 빛의 세기">
+            </div>
+            <div class="frac-out" id="rr-${r.d}"></div></div>`}</td>
+          <td><button class="del" data-d="${r.d}" aria-label="${r.d} cm 행 삭제">×</button></td></tr>`;
+      }).join('');
+      rows.forEach((r,i) => { if (i === 0) return;
+        $('num-'+r.d).addEventListener('input', e => { r.num = e.target.value; updateComputed(); });
+        $('den-'+r.d).addEventListener('input', e => { r.den = e.target.value; updateComputed(); });
+      });
+      rows.forEach(r => $('lux-'+r.d).addEventListener('input', e => { const v = parseFloat(e.target.value); r.lux = isFinite(v) ? v : 0; r.example = false; updateComputed(); }));
+      tb.querySelectorAll('.del').forEach(b => b.onclick = () => { rows = rows.filter(r => r.d !== +b.dataset.d); renderTable(); });
+    }
+    updateComputed();
+  }
+  function updateComputed(){
+    const c = calc(rows);
+    if (rows.length) $('baseInfo').textContent = `${rows[0].d} cm, ${fmtLux(rows[0].lux)} lx`;
+    rows.forEach((r,i) => {
+      if (i === 0) return;
+      const out = $('rr-'+r.d), v = studentRatio(r);
+      if (v === null) { out.innerHTML = ''; return; }
+      const num = parseFloat(r.num), den = parseFloat(r.den);
+      const off = Math.abs(num - r.lux) > 0.05 || Math.abs(den - rows[0].lux) > 0.05;
+      out.innerHTML = `<span class="sub">= ${v.toFixed(2)}</span><span class="ratio-main"><span class="frac-eq">≈ </span>${fracOf(v)}</span>` +
+        (off ? `<span class="sub warn-sub">표의 측정값과<br>다른 값이 있어요</span>` : '');
+    });
+    drawOverlay();
+  }
+  function conclude(c){
+    const box = $('conclude');
+    if (rows.length < 2) { box.innerHTML = '<p>두 거리 이상 기록하면 결론이 여기에 나타나요.</p>'; return; }
+    const b = rows[0];
+    const lines = rows.slice(1).map((r,i) => {
+      const k = c[i+1];
+      if (!(k.r > 0)) return '';
+      return `<p>거리 ${b.d}→${r.d} cm (<b>${nice(k.dr)}배</b>) : 빛의 세기 약 <b>${fracOf(k.r)}배</b> <span class="note">(예상 1/${nice(k.dr*k.dr)}배)</span></p>`;
+    }).join('');
+    const errs = rows.slice(1).map((r,i) => Math.abs(c[i+1].r / c[i+1].exp - 1)).filter(isFinite);
+    const avg = errs.reduce((a,x) => a+x, 0) / Math.max(1, errs.length);
+    let tail;
+    if (avg < 0.2) tail = '<p class="big">거리가 n배 → 빛의 세기는 약 1/n²배</p>';
+    else if (rows.some(r => r.room)) tail = '<p>예상과 차이가 커요. 방 불이 켜진 상태의 값이 섞여 있지 않은지 확인해 보세요.</p>';
+    else tail = '<p>예상과 차이가 커요. 측정 조건(전구 밝기, 거리)을 확인하고 다시 측정해 보세요.</p>';
+    box.innerHTML = lines + tail;
+  }
+
+  /* ---------- 그래프 ---------- */
+  function drawGraph(c){
+    const g = $('graph'), W = 520, H = 320, L = 58, R = 16, T = 18, B = 46;
+    const css = getComputedStyle(document.documentElement);
+    const col = n => css.getPropertyValue(n).trim();
+    const ink = col('--ink'), muted = col('--muted'), line = col('--line'), amber = col('--amber'), teal = col('--teal');
+    const maxLux = Math.max(100, ...rows.map(r => r.lux));
+    const step = [10,20,25,50,100,200,250,500,1000,2000,2500,5000].find(s => maxLux*1.08/s <= 6) || 10000;
+    const yMax = Math.ceil(maxLux*1.08/step)*step;
+    const X = d => L + d/100*(W-L-R), Y = v => T + (1 - v/yMax)*(H-T-B);
+    let s = `<defs><clipPath id="plot"><rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}"/></clipPath></defs>`;
+    for (let v = 0; v <= yMax + 1e-9; v += step) s += `<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="${line}"/><text x="${L-8}" y="${Y(v)+4}" text-anchor="end" font-size="12" fill="${muted}" font-family="Share Tech Mono, monospace">${v}</text>`;
+    for (let d = 0; d <= 100; d += 20) s += `<line x1="${X(d)}" x2="${X(d)}" y1="${H-B}" y2="${H-B+5}" stroke="${muted}"/><text x="${X(d)}" y="${H-B+19}" text-anchor="middle" font-size="12" fill="${muted}" font-family="Share Tech Mono, monospace">${d}</text>`;
+    s += `<line x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}" stroke="${muted}"/>`;
+    s += `<text x="${(L+W-R)/2}" y="${H-6}" text-anchor="middle" font-size="12.5" fill="${muted}">광원으로부터의 거리 (cm)</text>`;
+    s += `<text x="14" y="${(T+H-B)/2}" text-anchor="middle" font-size="12.5" fill="${muted}" transform="rotate(-90 14 ${(T+H-B)/2})">빛의 세기 (lx)</text>`;
+    if ($('curveChk').checked && rows.length && rows[0].lux > 0) {
+      const b = rows[0], k = b.lux * b.d * b.d; let p = '';
+      for (let d = 4; d <= 100; d += 0.5) p += (p ? 'L' : 'M') + X(d).toFixed(1) + ' ' + Y(k/(d*d)).toFixed(1);
+      s += `<path d="${p}" fill="none" stroke="${teal}" stroke-width="2" stroke-dasharray="6 5" clip-path="url(#plot)"/>`;
+    }
+    rows.forEach((r,i) => {
+      s += `<circle cx="${X(r.d)}" cy="${Y(r.lux)}" r="6" fill="${amber}" stroke="${ink}" stroke-width="1"/>`;
+      s += `<text x="${X(r.d)+9}" y="${Y(r.lux)-8}" font-size="12" fill="${ink}" font-family="Share Tech Mono, monospace">${fmtLux(r.lux)}</text>`;
+    });
+    g.innerHTML = s;
+  }
+
+  /* ---------- 시작 상태: 예시 기록 ---------- */
+  rows = [
+    { d:20, lux:136, room:false, bulb:true, power:1, example:true },
+    { d:40, lux:35,  room:false, bulb:true, power:1, example:true, num:'35', den:'136' },
+    { d:60, lux:15,  room:false, bulb:true, power:1, example:true }
+  ];
+  renderStage(); tick(); renderTable();
+})();
+</script>
+
+</body>
+</html>
