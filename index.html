@@ -259,7 +259,7 @@ td input{width:5em;font-family:var(--f-data);font-size:22px;text-align:right;pad
         </div>
         <div class="guide">
           <div class="frac guide-frac" aria-hidden="true"><span>그 거리에서 잰 빛의 세기</span><span class="frac-bar"></span><span>기준 거리에서 잰 빛의 세기</span></div>
-          <p><b>거리에 따른 빛의 세기의 비</b>를 분수로 적어 보세요.<br><b>분자</b>에는 그 거리(40 cm, 60 cm …)에서 잰 빛의 세기를, <b>분모</b>에는 기준 거리(<span id="baseInfo">20 cm, 136 lx</span>)에서 잰 빛의 세기를 넣으면 빛의 세기가 몇 분의 1이 되었는지 바로 나와요.</p>
+          <p><b>거리에 따른 빛의 세기의 비</b>를 분수로 적어 보세요.<br><b>분자</b>에는 그 거리(40 cm, 60 cm …)에서 잰 빛의 세기를, <b>분모</b>에는 기준 거리(<span id="baseInfo">가장 가까운 거리</span>)에서 잰 빛의 세기를 넣으면 빛의 세기가 몇 분의 1이 되었는지 바로 나와요.</p>
         </div>
         <div class="table-scroll">
           <table>
@@ -496,7 +496,7 @@ td input{width:5em;font-family:var(--f-data);font-size:22px;text-align:right;pad
   }
   function updateComputed(){
     const c = calc(rows);
-    if (rows.length) $('baseInfo').textContent = `${rows[0].d} cm, ${fmtLux(rows[0].lux)} lx`;
+    $('baseInfo').textContent = rows.length ? `${rows[0].d} cm, ${fmtLux(rows[0].lux)} lx` : '가장 가까운 거리';
     rows.forEach((r,i) => {
       if (i === 0) return;
       const out = $('rr-'+r.d), v = studentRatio(r);
@@ -555,11 +555,7 @@ td input{width:5em;font-family:var(--f-data);font-size:22px;text-align:right;pad
   }
 
   /* ---------- 시작 상태: 예시 기록 ---------- */
-  rows = [
-    { d:20, lux:136, room:false, bulb:true, power:1, example:true },
-    { d:40, lux:35,  room:false, bulb:true, power:1, example:true, num:'35', den:'136' },
-    { d:60, lux:15,  room:false, bulb:true, power:1, example:true }
-  ];
+  rows = [];
   renderStage(); tick(); renderTable();
 })();
 </script>
